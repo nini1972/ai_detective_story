@@ -16,6 +16,12 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
+// Import extracted components
+import CharacterInteraction from './components/CharacterInteraction';
+import Notifications from './components/Notifications';
+import EvidenceBoard from './components/EvidenceBoard';
+import VisualGalleryModal from './components/VisualGalleryModal';
+
 // Component imports
 import CharacterInteraction from './components/CharacterInteraction';
 import { NotificationContainer } from './components/Notifications';
