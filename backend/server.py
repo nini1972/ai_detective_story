@@ -658,6 +658,18 @@ Keep responses conversational, realistic, and under 150 words. Make it feel like
 
         response = await self.storyteller_ai.send_message(UserMessage(text=prompt))
         
+        # Log token usage for character questioning (OpenAI)
+        await token_tracker.log_usage(
+            session_id=session_id,
+            case_id=case_id,
+            service="openai",
+            operation="character_question",
+            prompt=prompt,
+            response=response,
+            model_used="gpt-4.1",
+            success=True
+        )
+        
         # Now detect if any new characters were mentioned
         detection_prompt = f"""Analyze the following conversation for mentions of NEW people who could potentially be questioned in this detective investigation.
 
