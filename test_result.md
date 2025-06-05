@@ -101,3 +101,110 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+## user_problem_statement: 
+Continue development of the ai_detective_story project based on GitHub Copilot reviews. Implement high priority recommendations: Token Usage Monitoring and Automated Prompt Testing. Lower priority: Prompt Versioning and User Customization.
+
+## backend:
+  - task: "Dual-AI Detective Game Backend"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Current backend fully functional with OpenAI GPT-4, Anthropic Claude, and FAL.AI integrations. Comprehensive mystery case generation, character questioning, visual scene generation, and evidence analysis working."
+
+  - task: "Token Usage Monitoring Implementation"
+    implemented: false
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "HIGH PRIORITY - Need to implement API cost tracking per investigation, monitor usage patterns, and add cost control for scaling"
+
+  - task: "Automated Prompt Testing Implementation"
+    implemented: false
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "HIGH PRIORITY - Need to implement automated testing of prompt+response cycles, validate JSON parsing, and protect against API changes"
+
+  - task: "Prompt Versioning System"
+    implemented: false
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "LOWER PRIORITY - A/B testing capabilities for prompt optimization"
+
+## frontend:
+  - task: "React Detective Game Interface"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Current frontend fully functional with detective game interface, character interactions, evidence boards, visual galleries, save/load functionality, and real-time updates."
+
+  - task: "User Interface for Token Monitoring"
+    implemented: false
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Need to add UI elements to display API costs, usage statistics, and cost controls"
+
+  - task: "User Customization Interface"
+    implemented: false
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "LOWER PRIORITY - Advanced user prompt modification interface"
+
+## metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: false
+
+## test_plan:
+  current_focus:
+    - "Token Usage Monitoring Implementation"
+    - "Automated Prompt Testing Implementation"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+## agent_communication:
+    - agent: "main"
+      message: "Analyzed existing AI Detective Story project. All current functionality working (dual-AI system, visual generation, dynamic character discovery). Ready to implement high priority GitHub Copilot recommendations: Token Usage Monitoring and Automated Prompt Testing."
