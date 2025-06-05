@@ -1020,9 +1020,20 @@ async def root():
 
 @app.post("/api/generate-case")
 async def generate_case():
-    """Generate a new mystery case"""
+    """Generate a new mystery case with rate limiting"""
     try:
         session_id = str(uuid.uuid4())
+        
+        # Check rate limits before proceeding (Copilot recommendation)
+        rate_limits = await token_tracker.check_rate_limits(session_id)
+        if not rate_limits["within_limits"]:
+            error_msg = "Rate limit exceeded."
+            if rate_limits["cost_limit_exceeded"]:
+                error_msg += f" Session cost limit: ${rate_limits['max_cost']}"
+            if rate_limits["operations_limit_exceeded"]:
+                error_msg += f" Operations limit: {rate_limits['max_operations']}/hour"
+            raise HTTPException(status_code=429, detail=error_msg)
+        
         case = await ai_service.generate_mystery_case(session_id)
         
         # Store in database
@@ -1033,6 +1044,9 @@ async def generate_case():
         case_response.solution = "Hidden until case is solved"
         
         return {"case": case_response, "session_id": session_id}
+    except HTTPException:
+        # Re-raise HTTP exceptions (like rate limiting)
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate case: {str(e)}")
 
