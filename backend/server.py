@@ -1219,6 +1219,69 @@ async def analyze_evidence(request: AnalysisRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to analyze evidence: {str(e)}")
 
+# Token Usage Monitoring Endpoints
+@app.get("/api/usage/session/{session_id}")
+async def get_session_usage(session_id: str):
+    """
+    Get real-time token usage for a specific session.
+    Implements Copilot's monitoring recommendation.
+    """
+    try:
+        usage = await token_tracker.get_session_usage(session_id)
+        return {"success": True, "usage": usage}
+    except Exception as e:
+        logger.error(f"Error getting session usage: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve session usage")
+
+@app.get("/api/usage/statistics")
+async def get_usage_statistics(days: int = 30):
+    """
+    Get comprehensive usage statistics for the specified number of days.
+    Provides service breakdown, operation costs, and trends.
+    """
+    try:
+        stats = await token_tracker.get_usage_statistics(days)
+        return {"success": True, "statistics": stats.model_dump()}
+    except Exception as e:
+        logger.error(f"Error getting usage statistics: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve usage statistics")
+
+@app.get("/api/usage/rate-limits/{session_id}")
+async def check_session_rate_limits(session_id: str):
+    """
+    Check if a session is within rate limits.
+    Implements Copilot's rate limiting recommendation.
+    """
+    try:
+        limits = await token_tracker.check_rate_limits(session_id)
+        return {"success": True, "rate_limits": limits}
+    except Exception as e:
+        logger.error(f"Error checking rate limits: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to check rate limits")
+
+@app.get("/api/usage/records")
+async def get_usage_records(session_id: Optional[str] = None, limit: int = 100):
+    """
+    Get detailed usage records for debugging and analysis.
+    Optionally filter by session ID.
+    """
+    try:
+        query = {}
+        if session_id:
+            query["session_id"] = session_id
+        
+        records = await db.token_usage.find(query).sort("timestamp", -1).limit(limit).to_list(None)
+        
+        # Convert ObjectIds to strings for JSON serialization
+        for record in records:
+            if "_id" in record:
+                del record["_id"]
+        
+        return {"success": True, "records": records, "count": len(records)}
+    except Exception as e:
+        logger.error(f"Error getting usage records: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve usage records")
+
 @app.get("/api/health")
 async def health_check():
     return {"status": "healthy", "ai_services": "dual-ai-active"}
