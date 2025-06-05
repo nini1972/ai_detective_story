@@ -16,8 +16,8 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-// Backend URL from environment variables
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+// Backend URL from environment variables with fallback for development
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 
 function App() {
   // Core game state
