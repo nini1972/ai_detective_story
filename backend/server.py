@@ -148,6 +148,44 @@ class UsageStatistics(BaseModel):
     average_cost_per_case: float
     last_updated: datetime
 
+class PromptTestCase(BaseModel):
+    id: str
+    name: str
+    prompt_type: str  # "case_generation", "character_question", "evidence_analysis", "character_detection"
+    service: str  # "openai", "anthropic"
+    test_input: Dict[str, Any]
+    expected_format: Dict[str, Any]
+    validation_rules: List[str]
+    description: str
+
+class PromptTestResult(BaseModel):
+    id: str
+    test_case_id: str
+    test_case_name: str
+    timestamp: datetime
+    success: bool
+    execution_time: float  # in seconds
+    response_received: bool
+    json_parse_success: bool
+    validation_passed: bool
+    token_count: int
+    estimated_cost: float
+    error_message: Optional[str] = None
+    response_preview: Optional[str] = None  # First 200 chars of response
+    detailed_results: Dict[str, Any]
+
+class PromptTestSuite(BaseModel):
+    id: str
+    name: str
+    timestamp: datetime
+    tests_run: int
+    tests_passed: int
+    tests_failed: int
+    total_execution_time: float
+    total_cost: float
+    success_rate: float
+    results: List[PromptTestResult]
+
 # Token Usage Tracking Service
 class TokenUsageTracker:
     """
