@@ -16,6 +16,12 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
+// Component imports
+import CharacterInteraction from './components/CharacterInteraction';
+import { NotificationContainer } from './components/Notifications';
+import EvidenceBoard from './components/EvidenceBoard';
+import VisualGalleryModal from './components/VisualGalleryModal';
+
 // Backend URL from environment variables with fallback for development
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 
