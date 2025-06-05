@@ -705,6 +705,18 @@ Return ONLY the JSON array, nothing else."""
 
         mentions_response = await self.logic_ai.send_message(UserMessage(text=detection_prompt))
         
+        # Log token usage for character detection (Claude)
+        await token_tracker.log_usage(
+            session_id=session_id,
+            case_id=case_id,
+            service="anthropic",
+            operation="character_detection",
+            prompt=detection_prompt,
+            response=mentions_response,
+            model_used="claude-sonnet-4-20250514",
+            success=True
+        )
+        
         # Parse the mentions
         try:
             import json
