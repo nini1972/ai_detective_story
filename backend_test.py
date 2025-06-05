@@ -429,9 +429,8 @@ class DetectiveGameAPITester:
         success, response = self.run_test(
             "Validate Custom Prompt",
             "POST",
-            "api/testing/validate-prompt?prompt_type=character_question&service=openai",
-            200,
-            data={"prompt_text": prompt_text}
+            f"api/testing/validate-prompt?prompt_type=character_question&service=openai&prompt_text={prompt_text}",
+            200
         )
         
         if success and 'test_result' in response:
