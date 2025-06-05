@@ -1734,6 +1734,199 @@ async def get_usage_records(session_id: Optional[str] = None, limit: int = 100):
         logger.error(f"Error getting usage records: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve usage records")
 
+# Automated Prompt Testing Endpoints
+@app.post("/api/testing/run-tests")
+async def run_prompt_tests(test_types: Optional[List[str]] = None):
+    """
+    Run automated prompt tests for all or specific prompt types.
+    Implements Copilot's automated testing recommendation.
+    """
+    try:
+        session_id = f"test_session_{str(uuid.uuid4())}"
+        
+        # Run test suite
+        test_suite = await prompt_tester.run_test_suite(session_id, test_types)
+        
+        # Return comprehensive results
+        return {
+            "success": True,
+            "test_suite": test_suite.model_dump(),
+            "summary": {
+                "tests_run": test_suite.tests_run,
+                "tests_passed": test_suite.tests_passed,
+                "tests_failed": test_suite.tests_failed,
+                "success_rate": f"{test_suite.success_rate:.1f}%",
+                "total_cost": f"${test_suite.total_cost:.4f}",
+                "execution_time": f"{test_suite.total_execution_time:.2f}s"
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error running prompt tests: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to run prompt tests: {str(e)}")
+
+@app.get("/api/testing/test-cases")
+async def get_test_cases():
+    """
+    Get all available test cases and their configurations.
+    """
+    try:
+        test_cases = prompt_tester.test_cases
+        return {
+            "success": True,
+            "test_cases": [tc.model_dump() for tc in test_cases],
+            "count": len(test_cases)
+        }
+    except Exception as e:
+        logger.error(f"Error getting test cases: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve test cases")
+
+@app.get("/api/testing/test-history")
+async def get_test_history(limit: int = 10):
+    """
+    Get historical test suite results for monitoring trends.
+    """
+    try:
+        # Get recent test suites from database
+        test_suites = await db.prompt_test_suites.find({}).sort("timestamp", -1).limit(limit).to_list(None)
+        
+        # Convert ObjectIds to strings for JSON serialization
+        for suite in test_suites:
+            if "_id" in suite:
+                del suite["_id"]
+        
+        return {
+            "success": True,
+            "test_suites": test_suites,
+            "count": len(test_suites)
+        }
+    except Exception as e:
+        logger.error(f"Error getting test history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve test history")
+
+@app.post("/api/testing/validate-prompt")
+async def validate_single_prompt(prompt_type: str, prompt_text: str, service: str = "openai"):
+    """
+    Test and validate a single custom prompt.
+    Useful for debugging and developing new prompts.
+    """
+    try:
+        session_id = f"validation_session_{str(uuid.uuid4())}"
+        
+        # Create a temporary test case
+        test_case = PromptTestCase(
+            id=f"custom_test_{str(uuid.uuid4())}",
+            name="Custom Prompt Validation",
+            prompt_type=prompt_type,
+            service=service,
+            test_input={},
+            expected_format={},
+            validation_rules=["response_not_empty"],
+            description="Custom prompt validation"
+        )
+        
+        # Override the prompt building for custom validation
+        original_build_prompt = prompt_tester._build_test_prompt
+        prompt_tester._build_test_prompt = lambda tc: prompt_text
+        
+        try:
+            # Run the test
+            result = await prompt_tester.run_single_test(test_case, session_id)
+            
+            return {
+                "success": True,
+                "test_result": result.model_dump(),
+                "validation": {
+                    "response_received": result.response_received,
+                    "json_parse_success": result.json_parse_success,
+                    "validation_passed": result.validation_passed,
+                    "execution_time": f"{result.execution_time:.2f}s",
+                    "estimated_cost": f"${result.estimated_cost:.4f}",
+                    "token_count": result.token_count
+                }
+            }
+        finally:
+            # Restore original method
+            prompt_tester._build_test_prompt = original_build_prompt
+            
+    except Exception as e:
+        logger.error(f"Error validating prompt: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to validate prompt: {str(e)}")
+
+@app.get("/api/testing/health-report")
+async def get_prompt_health_report():
+    """
+    Get a comprehensive health report of all prompt types.
+    Shows success rates, common failures, and trends.
+    """
+    try:
+        # Get recent test results from database
+        recent_suites = await db.prompt_test_suites.find({}).sort("timestamp", -1).limit(5).to_list(None)
+        
+        if not recent_suites:
+            return {
+                "success": True,
+                "report": {
+                    "overall_health": "No test data available",
+                    "recommendation": "Run prompt tests to generate health report"
+                }
+            }
+        
+        # Analyze health trends
+        prompt_type_stats = defaultdict(lambda: {"total": 0, "passed": 0, "failures": []})
+        overall_success_rates = []
+        
+        for suite in recent_suites:
+            overall_success_rates.append(suite.get("success_rate", 0))
+            
+            for result in suite.get("results", []):
+                prompt_type = result.get("test_case_name", "unknown")
+                prompt_type_stats[prompt_type]["total"] += 1
+                
+                if result.get("success", False):
+                    prompt_type_stats[prompt_type]["passed"] += 1
+                else:
+                    prompt_type_stats[prompt_type]["failures"].append(
+                        result.get("error_message", "Unknown error")
+                    )
+        
+        # Calculate health metrics
+        overall_avg_success = sum(overall_success_rates) / len(overall_success_rates) if overall_success_rates else 0
+        
+        health_by_type = {}
+        for prompt_type, stats in prompt_type_stats.items():
+            success_rate = (stats["passed"] / stats["total"]) * 100 if stats["total"] > 0 else 0
+            health_by_type[prompt_type] = {
+                "success_rate": f"{success_rate:.1f}%",
+                "total_tests": stats["total"],
+                "passed_tests": stats["passed"],
+                "common_failures": list(set(stats["failures"][:3]))  # Top 3 unique failures
+            }
+        
+        # Determine overall health status
+        if overall_avg_success >= 90:
+            health_status = "Excellent"
+        elif overall_avg_success >= 75:
+            health_status = "Good"
+        elif overall_avg_success >= 50:
+            health_status = "Fair"
+        else:
+            health_status = "Poor"
+        
+        return {
+            "success": True,
+            "report": {
+                "overall_health": health_status,
+                "overall_success_rate": f"{overall_avg_success:.1f}%",
+                "prompt_type_health": health_by_type,
+                "recent_test_count": len(recent_suites),
+                "recommendation": "Run tests regularly to monitor prompt reliability" if health_status == "Excellent" else "Review failing prompt types and consider prompt optimization"
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating health report: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate health report")
+
 @app.get("/api/health")
 async def health_check():
     return {"status": "healthy", "ai_services": "dual-ai-active"}
