@@ -71,6 +71,9 @@ const safeGet = (obj, path, defaultValue = null) => {
 };
 
 function App() {
+  // Add monitoring dashboard state
+  const [showMonitoringDashboard, setShowMonitoringDashboard] = useState(false);
+
   // Core game state
   const [currentCase, setCurrentCase] = useState(null);
   const [sessionId, setSessionId] = useState(null);
