@@ -121,6 +121,33 @@ class AnalysisRequest(BaseModel):
     evidence_ids: List[str]
     theory: str
 
+class TokenUsageRecord(BaseModel):
+    id: str
+    session_id: str
+    case_id: Optional[str] = None
+    timestamp: datetime
+    service: str  # "openai", "anthropic", "fal_ai"
+    operation: str  # "case_generation", "character_question", "evidence_analysis", "visual_generation"
+    input_tokens: Optional[int] = 0
+    output_tokens: Optional[int] = 0
+    total_tokens: Optional[int] = 0
+    estimated_cost: float  # in USD
+    model_used: Optional[str] = None
+    prompt_length: int
+    response_length: int
+    success: bool = True
+    error_message: Optional[str] = None
+
+class UsageStatistics(BaseModel):
+    total_cost: float
+    total_tokens: int
+    service_breakdown: Dict[str, Dict[str, Any]]
+    operation_breakdown: Dict[str, Dict[str, Any]]
+    session_count: int
+    case_count: int
+    average_cost_per_case: float
+    last_updated: datetime
+
 # AI Service Class
 class DualAIDetectiveService:
     def __init__(self):
