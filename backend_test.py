@@ -322,6 +322,158 @@ class DetectiveGameAPITester:
             return True
         return False
 
+    def test_get_test_cases(self):
+        """Test retrieving available test cases"""
+        success, response = self.run_test(
+            "Get Test Cases",
+            "GET",
+            "api/testing/test-cases",
+            200
+        )
+        
+        if success and 'test_cases' in response:
+            print(f"Available test cases: {response['count']}")
+            
+            if response['count'] > 0:
+                test_types = set()
+                services = set()
+                
+                for test_case in response['test_cases']:
+                    test_types.add(test_case['prompt_type'])
+                    services.add(test_case['service'])
+                
+                print(f"Test types: {', '.join(test_types)}")
+                print(f"Services covered: {', '.join(services)}")
+                
+                # Verify all 4 test types are present
+                expected_types = {"case_generation", "character_question", "character_detection", "evidence_analysis"}
+                if expected_types.issubset(test_types):
+                    print("✅ All 4 expected test types are configured")
+                else:
+                    print(f"⚠️ Missing test types: {expected_types - test_types}")
+                
+                # Verify both OpenAI and Anthropic are covered
+                if 'openai' in services and 'anthropic' in services:
+                    print("✅ Both OpenAI and Anthropic services are covered")
+                else:
+                    print("⚠️ Not all expected services are covered")
+            return True
+        return False
+    
+    def test_run_tests(self):
+        """Test running automated prompt tests"""
+        # We'll test with a specific test type to minimize API costs
+        test_type = "character_question"  # This tends to be less expensive
+        
+        success, response = self.run_test(
+            f"Run Prompt Tests ({test_type})",
+            "POST",
+            f"api/testing/run-tests?test_types={test_type}",
+            200
+        )
+        
+        if success and 'test_suite' in response:
+            suite = response['test_suite']
+            summary = response['summary']
+            
+            print("\nTest Suite Results:")
+            print(f"Tests Run: {summary['tests_run']}")
+            print(f"Tests Passed: {summary['tests_passed']}")
+            print(f"Tests Failed: {summary['tests_failed']}")
+            print(f"Success Rate: {summary['success_rate']}")
+            print(f"Total Cost: {summary['total_cost']}")
+            print(f"Execution Time: {summary['execution_time']}")
+            
+            # Check if we have detailed results
+            if 'results' in suite and len(suite['results']) > 0:
+                result = suite['results'][0]
+                print("\nSample Test Result:")
+                print(f"Test Case: {result['test_case_name']}")
+                print(f"Success: {result['success']}")
+                print(f"Response Received: {result['response_received']}")
+                print(f"JSON Parse Success: {result['json_parse_success']}")
+                print(f"Validation Passed: {result['validation_passed']}")
+                print(f"Token Count: {result['token_count']}")
+                print(f"Estimated Cost: ${result['estimated_cost']:.4f}")
+            return True
+        return False
+    
+    def test_test_history(self):
+        """Test retrieving test history"""
+        success, response = self.run_test(
+            "Get Test History",
+            "GET",
+            "api/testing/test-history",
+            200
+        )
+        
+        if success and 'test_suites' in response:
+            print(f"Test history records: {response['count']}")
+            
+            if response['count'] > 0:
+                print("\nMost recent test suite:")
+                suite = response['test_suites'][0]
+                print(f"ID: {suite['id']}")
+                print(f"Name: {suite['name']}")
+                print(f"Tests Run: {suite['tests_run']}")
+                print(f"Tests Passed: {suite['tests_passed']}")
+                print(f"Success Rate: {suite['success_rate']}%")
+            return True
+        return False
+    
+    def test_validate_prompt(self):
+        """Test validating a single custom prompt"""
+        # Use a simple prompt to minimize API costs
+        prompt_text = "Respond with a short greeting as a detective character."
+        
+        success, response = self.run_test(
+            "Validate Custom Prompt",
+            "POST",
+            "api/testing/validate-prompt?prompt_type=character_question&service=openai",
+            200,
+            data={"prompt_text": prompt_text}
+        )
+        
+        if success and 'test_result' in response:
+            validation = response['validation']
+            
+            print("\nPrompt Validation Results:")
+            print(f"Response Received: {validation['response_received']}")
+            print(f"JSON Parse Success: {validation['json_parse_success']}")
+            print(f"Validation Passed: {validation['validation_passed']}")
+            print(f"Execution Time: {validation['execution_time']}")
+            print(f"Estimated Cost: {validation['estimated_cost']}")
+            print(f"Token Count: {validation['token_count']}")
+            return True
+        return False
+    
+    def test_health_report(self):
+        """Test retrieving prompt health report"""
+        success, response = self.run_test(
+            "Get Prompt Health Report",
+            "GET",
+            "api/testing/health-report",
+            200
+        )
+        
+        if success and 'report' in response:
+            report = response['report']
+            
+            print("\nPrompt Health Report:")
+            print(f"Overall Health: {report['overall_health']}")
+            
+            if 'overall_success_rate' in report:
+                print(f"Overall Success Rate: {report['overall_success_rate']}")
+                
+                if 'prompt_type_health' in report:
+                    print("\nHealth by Prompt Type:")
+                    for prompt_type, health in report['prompt_type_health'].items():
+                        print(f"- {prompt_type}: {health['success_rate']} ({health['passed_tests']}/{health['total_tests']})")
+            else:
+                print(f"Recommendation: {report['recommendation']}")
+            return True
+        return False
+
 def main():
     # Get the backend URL from environment or use the one from frontend/.env
     backend_url = os.environ.get("BACKEND_URL")
@@ -393,13 +545,49 @@ def main():
     token_tests_passed = sum(1 for _, passed in token_tests if passed)
     print(f"\n📊 Token Monitoring Tests passed: {token_tests_passed}/{len(token_tests)}")
     
-    # Print results
+    # Test automated prompt testing endpoints
+    print("\n🔍 Starting Automated Prompt Testing Tests\n")
+    
+    # Test getting available test cases
+    test_cases_success = tester.test_get_test_cases()
+    
+    # Test running automated tests (with a specific test type to minimize costs)
+    run_tests_success = tester.test_run_tests()
+    
+    # Test retrieving test history
+    test_history_success = tester.test_test_history()
+    
+    # Test validating a single custom prompt
+    validate_prompt_success = tester.test_validate_prompt()
+    
+    # Test retrieving prompt health report
+    health_report_success = tester.test_health_report()
+    
+    # Print prompt testing specific results
+    print("\n📊 Automated Prompt Testing Tests:")
+    prompt_tests = [
+        ("Get Test Cases", test_cases_success),
+        ("Run Automated Tests", run_tests_success),
+        ("Test History", test_history_success),
+        ("Validate Custom Prompt", validate_prompt_success),
+        ("Prompt Health Report", health_report_success)
+    ]
+    
+    for test_name, passed in prompt_tests:
+        status = "✅ PASSED" if passed else "❌ FAILED"
+        print(f"{status} - {test_name}")
+    
+    prompt_tests_passed = sum(1 for _, passed in prompt_tests if passed)
+    print(f"\n📊 Prompt Testing Tests passed: {prompt_tests_passed}/{len(prompt_tests)}")
+    
+    # Print overall results
     print("\n📊 Tests passed: {}/{}".format(
         tester.tests_passed,
         tester.tests_run
     ))
     
-    return 0 if token_tests_passed == len(token_tests) else 1
+    all_tests_passed = token_tests_passed == len(token_tests) and prompt_tests_passed == len(prompt_tests)
+    return 0 if all_tests_passed else 1
 
 if __name__ == "__main__":
     sys.exit(main())
