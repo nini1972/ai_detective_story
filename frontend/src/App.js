@@ -318,11 +318,12 @@ function App() {
         }),
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to question character');
-      }
+      // Use improved error handling
+      const data = await handleApiResponse(response);
       
-      const data = await response.json();
+      // Defensive validation
+      const characterName = safeGet(data, 'character_name') || activeCharacter.name;
+      const response_text = safeGet(data, 'response', 'No response received');
       
       // Add to conversations
       const charId = activeCharacter.id;
@@ -332,30 +333,30 @@ function App() {
           ...(prev[charId] || []),
           {
             question: question.trim(),
-            response: data.response,
+            response: response_text,
             timestamp: new Date().toLocaleTimeString()
           }
         ]
       }));
       
-      // Handle dynamic character discovery
-      if (data.new_characters_discovered && data.new_characters_discovered.length > 0) {
+      // Handle dynamic character discovery with improved validation
+      const newCharactersDiscovered = safeGet(data, 'new_characters_discovered', []);
+      if (Array.isArray(newCharactersDiscovered) && newCharactersDiscovered.length > 0) {
         // Update the current case with new characters
         setCurrentCase(prev => ({
           ...prev,
-          characters: [...prev.characters, ...data.new_characters_discovered.map(discovery => discovery.character)]
+          characters: [...prev.characters, ...newCharactersDiscovered.map(discovery => safeGet(discovery, 'character')).filter(Boolean)]
         }));
         
         // Show notifications for new characters
-        const notifications = data.new_characters_discovered.map(discovery => ({
+        const notifications = newCharactersDiscovered.map(discovery => ({
           id: Date.now() + Math.random(),
-          character: discovery.character,
-          discoveredThrough: discovery.discovered_through,
-          context: discovery.context,
+          character: safeGet(discovery, 'character'),
+          discoveredThrough: safeGet(discovery, 'discovered_through', 'Unknown'),
+          context: safeGet(discovery, 'context', ''),
           timestamp: Date.now()
-        }));
+        })).filter(notif => notif.character);
         
-        console.log('Setting notifications:', notifications);
         setNewCharacterNotifications(prev => [...prev, ...notifications]);
         
         // Auto-dismiss notifications after 10 seconds
@@ -368,31 +369,24 @@ function App() {
         }, 10000);
       }
       
-      // Handle visual scene generation
-      if (data.visual_scene_generated) {
-        console.log('Visual scene generated:', data.visual_scene_generated);
-        
+      // Handle visual scene generation with improved validation
+      const visualSceneGenerated = safeGet(data, 'visual_scene_generated');
+      if (visualSceneGenerated) {
         // Update current case with new visual scene
         setCurrentCase(prev => ({
           ...prev,
-          visual_scenes: [...(prev.visual_scenes || []), data.visual_scene_generated]
+          visual_scenes: [...(prev.visual_scenes || []), visualSceneGenerated]
         }));
         
         // Show visual scene notification
         const sceneNotification = {
           id: Date.now() + Math.random(),
-          scene: data.visual_scene_generated,
-          character: data.character_name,
+          scene: visualSceneGenerated,
+          character: characterName,
           timestamp: Date.now()
         };
         
-        console.log('Adding scene notification:', sceneNotification);
-        setVisualSceneNotifications(prev => {
-          console.log('Previous notifications:', prev);
-          const newNotifications = [...prev, sceneNotification];
-          console.log('New notifications:', newNotifications);
-          return newNotifications;
-        });
+        setVisualSceneNotifications(prev => [...prev, sceneNotification]);
         
         // Auto-dismiss after 8 seconds
         setTimeout(() => {
@@ -400,14 +394,12 @@ function App() {
             prev.filter(n => n.id !== sceneNotification.id)
           );
         }, 8000);
-      } else {
-        console.log('No visual scene generated in response');
       }
       
       setQuestion('');
     } catch (error) {
       console.error('Error questioning character:', error);
-      alert('Failed to question character. Please try again.');
+      alert(`Failed to question character: ${error.message}`);
     } finally {
       setLoading(false);
     }
