@@ -535,7 +535,19 @@ Return ONLY valid JSON with this exact structure:
             
             return case
             
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            # Log token usage for failed case generation
+            await token_tracker.log_usage(
+                session_id=session_id,
+                case_id=None,
+                service="openai",
+                operation="case_generation",
+                prompt=prompt,
+                response=response,
+                model_used="gpt-4.1",
+                success=False,
+                error_message=f"JSON parsing failed: {str(e)}"
+            )
             # Fallback case if JSON parsing fails
             return self._create_fallback_case()
     
