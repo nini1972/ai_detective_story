@@ -383,8 +383,7 @@ class TokenUsageTracker:
             "max_operations": MAX_OPERATIONS_PER_HOUR
         }
 
-# Initialize token usage tracker
-token_tracker = None
+
 
 # AI Service Class
 class DualAIDetectiveService:
