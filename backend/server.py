@@ -471,6 +471,18 @@ Return ONLY valid JSON with this exact structure:
 
         response = await self.storyteller_ai.send_message(UserMessage(text=prompt))
         
+        # Log token usage for case generation
+        await token_tracker.log_usage(
+            session_id=session_id,
+            case_id=None,  # Case ID not yet available
+            service="openai",
+            operation="case_generation",
+            prompt=prompt,
+            response=response,
+            model_used="gpt-4.1",
+            success=True
+        )
+        
         # Parse the response and create case
         import json
         try:
