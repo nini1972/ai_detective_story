@@ -267,22 +267,21 @@ function App() {
       
       console.log('Response received:', response.status, response.statusText);
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API Error:', errorText);
-        throw new Error(`Failed to generate case: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
+      // Use improved error handling
+      const data = await handleApiResponse(response);
       console.log('Case data received:', data);
       
-      if (!data.case) {
-        throw new Error('No case data in response');
+      // Defensive validation of case data
+      const caseData = safeGet(data, 'case');
+      const sessionId = safeGet(data, 'session_id');
+      
+      if (!caseData || !caseData.id) {
+        throw new Error('Invalid case data received from server');
       }
       
       console.log('Setting case state...');
-      setCurrentCase(data.case);
-      setSessionId(data.session_id);
+      setCurrentCase(caseData);
+      setSessionId(sessionId);
       setGameState('playing');
       setConversations({});
       setSelectedEvidence([]);
