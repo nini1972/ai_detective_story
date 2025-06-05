@@ -373,8 +373,51 @@ def main():
         print("❌ Analyze evidence failed, stopping tests")
         return 1
     
+    # Give a moment for async token logging to complete
+    print("\n⏳ Waiting for token usage logging to complete...")
+    time.sleep(2)
+    
+    # Test token usage monitoring endpoints
+    print("\n🔍 Starting Token Usage Monitoring Tests\n")
+    
+    # Test session usage tracking
+    session_usage_success = tester.test_session_usage()
+    
+    # Test overall usage statistics
+    usage_stats_success = tester.test_usage_statistics()
+    
+    # Test rate limits
+    rate_limits_success = tester.test_rate_limits()
+    
+    # Test detailed usage records
+    usage_records_success = tester.test_usage_records()
+    
+    # Test session-specific records
+    session_records_success = tester.test_session_specific_records()
+    
     # Print results
-    print(f"\n📊 Tests passed: {tester.tests_passed}/{tester.tests_run}")
+    print("\n📊 Tests passed: {}/{}".format(
+        tester.tests_passed,
+        tester.tests_run
+    ))
+    
+    # Print token monitoring specific results
+    print("\n📊 Token Usage Monitoring Tests:")
+    token_tests = [
+        ("Session Usage Tracking", session_usage_success),
+        ("Overall Usage Statistics", usage_stats_success),
+        ("Rate Limits Checking", rate_limits_success),
+        ("Detailed Usage Records", usage_records_success),
+        ("Session-Specific Records", session_records_success)
+    ]
+    
+    for test_name, passed in token_tests:
+        status = "✅ PASSED" if passed else "❌ FAILED"
+        print(f"{status} - {test_name}")
+    
+    token_tests_passed = sum(1 for _, passed in token_tests if passed)
+    print(f"\n📊 Token Monitoring Tests passed: {token_tests_passed}/{len(token_tests)}")
+    
     return 0 if tester.tests_passed == tester.tests_run else 1
 
 if __name__ == "__main__":
