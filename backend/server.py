@@ -424,6 +424,406 @@ class TokenUsageTracker:
 # Initialize token usage tracker after database setup
 token_tracker = TokenUsageTracker(db)
 
+# Automated Prompt Testing Framework
+class PromptTestFramework:
+    """
+    Comprehensive prompt testing framework for AI services.
+    Implements Copilot's recommendations for automated testing, JSON validation, and API change protection.
+    """
+    
+    def __init__(self, db, token_tracker):
+        self.db = db
+        self.token_tracker = token_tracker
+        self.test_cases = self._initialize_test_cases()
+    
+    def _initialize_test_cases(self) -> List[PromptTestCase]:
+        """Initialize predefined test cases for all prompt types"""
+        return [
+            # Case Generation Test
+            PromptTestCase(
+                id="test_case_generation_01",
+                name="Basic Case Generation",
+                prompt_type="case_generation",
+                service="openai",
+                test_input={},
+                expected_format={
+                    "title": "string",
+                    "setting": "string", 
+                    "crime_scene_description": "string",
+                    "victim_name": "string",
+                    "characters": "array",
+                    "evidence": "array",
+                    "solution": "string"
+                },
+                validation_rules=[
+                    "response_is_json",
+                    "has_required_fields",
+                    "characters_array_not_empty",
+                    "evidence_array_not_empty",
+                    "title_not_empty"
+                ],
+                description="Tests basic case generation with JSON structure validation"
+            ),
+            
+            # Character Question Test
+            PromptTestCase(
+                id="test_character_question_01",
+                name="Character Response Test",
+                prompt_type="character_question",
+                service="openai",
+                test_input={
+                    "character_name": "Lady Margaret Blackwood",
+                    "question": "Where were you during the murder?",
+                    "character_context": {
+                        "name": "Lady Margaret Blackwood",
+                        "description": "The victim's wife, elegant but cold",
+                        "background": "Married Lord Blackwood for his fortune 10 years ago",
+                        "alibi": "Claims she was reading in her bedroom",
+                        "motive": "Stands to inherit everything"
+                    }
+                },
+                expected_format={
+                    "response": "string"
+                },
+                validation_rules=[
+                    "response_not_empty",
+                    "response_under_200_words",
+                    "stays_in_character"
+                ],
+                description="Tests character questioning with realistic responses"
+            ),
+            
+            # Character Detection Test
+            PromptTestCase(
+                id="test_character_detection_01",
+                name="New Character Detection",
+                prompt_type="character_detection",
+                service="anthropic",
+                test_input={
+                    "conversation": "Detective: Who else was around that evening?\nLady Margaret: Well, the gardener was acting strange, and I saw the cook leaving early.",
+                    "existing_characters": ["Lady Margaret Blackwood", "Dr. Harrison"]
+                },
+                expected_format={
+                    "new_characters": "array"
+                },
+                validation_rules=[
+                    "response_is_json",
+                    "is_array_format",
+                    "detects_gardener_and_cook"
+                ],
+                description="Tests detection of new characters mentioned in conversation"
+            ),
+            
+            # Evidence Analysis Test
+            PromptTestCase(
+                id="test_evidence_analysis_01",
+                name="Evidence Analysis Test",
+                prompt_type="evidence_analysis",
+                service="anthropic",
+                test_input={
+                    "theory": "Lady Margaret poisoned her husband with cyanide to inherit his fortune.",
+                    "evidence": ["Poisoned brandy glass", "Lady Margaret's financial records"],
+                    "case_context": {
+                        "victim": "Lord Blackwood",
+                        "setting": "Victorian mansion"
+                    }
+                },
+                expected_format={
+                    "analysis": "string"
+                },
+                validation_rules=[
+                    "response_not_empty",
+                    "mentions_evidence",
+                    "provides_logical_analysis",
+                    "discusses_strengths_and_weaknesses"
+                ],
+                description="Tests evidence analysis with logical reasoning"
+            )
+        ]
+    
+    async def validate_response(self, test_case: PromptTestCase, response: str) -> Dict[str, Any]:
+        """Validate response against test case rules"""
+        validation_results = {
+            "response_is_json": False,
+            "has_required_fields": False,
+            "response_not_empty": False,
+            "response_under_200_words": False,
+            "stays_in_character": False,
+            "is_array_format": False,
+            "characters_array_not_empty": False,
+            "evidence_array_not_empty": False,
+            "title_not_empty": False,
+            "detects_gardener_and_cook": False,
+            "mentions_evidence": False,
+            "provides_logical_analysis": False,
+            "discusses_strengths_and_weaknesses": False
+        }
+        
+        # Basic response checks
+        validation_results["response_not_empty"] = bool(response and response.strip())
+        validation_results["response_under_200_words"] = len(response.split()) <= 200
+        
+        # JSON validation
+        try:
+            parsed_response = json.loads(response)
+            validation_results["response_is_json"] = True
+            
+            # Check required fields for case generation
+            if test_case.prompt_type == "case_generation":
+                expected_fields = test_case.expected_format.keys()
+                validation_results["has_required_fields"] = all(
+                    field in parsed_response for field in expected_fields
+                )
+                
+                if "characters" in parsed_response:
+                    validation_results["characters_array_not_empty"] = (
+                        isinstance(parsed_response["characters"], list) and 
+                        len(parsed_response["characters"]) > 0
+                    )
+                
+                if "evidence" in parsed_response:
+                    validation_results["evidence_array_not_empty"] = (
+                        isinstance(parsed_response["evidence"], list) and 
+                        len(parsed_response["evidence"]) > 0
+                    )
+                
+                if "title" in parsed_response:
+                    validation_results["title_not_empty"] = bool(parsed_response["title"].strip())
+            
+            # Check array format for character detection
+            if test_case.prompt_type == "character_detection":
+                validation_results["is_array_format"] = isinstance(parsed_response, list)
+                
+                # Check if gardener and cook are detected
+                if isinstance(parsed_response, list):
+                    mentioned_roles = [item.get("role", "").lower() for item in parsed_response if isinstance(item, dict)]
+                    validation_results["detects_gardener_and_cook"] = (
+                        any("gardener" in role for role in mentioned_roles) and
+                        any("cook" in role for role in mentioned_roles)
+                    )
+                    
+        except json.JSONDecodeError:
+            validation_results["response_is_json"] = False
+        
+        # Content-based validation
+        response_lower = response.lower()
+        
+        # Character response validation
+        if test_case.prompt_type == "character_question":
+            validation_results["stays_in_character"] = (
+                "margaret" in response_lower or "i" in response_lower
+            )
+        
+        # Evidence analysis validation  
+        if test_case.prompt_type == "evidence_analysis":
+            validation_results["mentions_evidence"] = (
+                "evidence" in response_lower or "brandy" in response_lower
+            )
+            validation_results["provides_logical_analysis"] = (
+                "analysis" in response_lower or "logical" in response_lower or "reasoning" in response_lower
+            )
+            validation_results["discusses_strengths_and_weaknesses"] = (
+                ("strength" in response_lower or "support" in response_lower) and
+                ("weakness" in response_lower or "gap" in response_lower or "missing" in response_lower)
+            )
+        
+        return validation_results
+    
+    async def run_single_test(self, test_case: PromptTestCase, session_id: str) -> PromptTestResult:
+        """Run a single prompt test case"""
+        start_time = time.time()
+        test_result = PromptTestResult(
+            id=str(uuid.uuid4()),
+            test_case_id=test_case.id,
+            test_case_name=test_case.name,
+            timestamp=datetime.now(),
+            success=False,
+            execution_time=0.0,
+            response_received=False,
+            json_parse_success=False,
+            validation_passed=False,
+            token_count=0,
+            estimated_cost=0.0,
+            detailed_results={}
+        )
+        
+        try:
+            # Initialize AI service
+            ai_service = DualAIDetectiveService()
+            
+            if test_case.service == "openai":
+                await ai_service.initialize_storyteller(session_id)
+                ai_client = ai_service.storyteller_ai
+            else:  # anthropic
+                await ai_service.initialize_logic_ai(session_id)
+                ai_client = ai_service.logic_ai
+            
+            # Build prompt based on test type
+            prompt = self._build_test_prompt(test_case)
+            
+            # Execute prompt
+            response = await ai_client.send_message(UserMessage(text=prompt))
+            test_result.response_received = True
+            test_result.response_preview = response[:200] if response else None
+            
+            # Log token usage
+            usage_record = await self.token_tracker.log_usage(
+                session_id=session_id,
+                case_id=None,
+                service=test_case.service,
+                operation=f"prompt_test_{test_case.prompt_type}",
+                prompt=prompt,
+                response=response,
+                model_used="gpt-4.1" if test_case.service == "openai" else "claude-sonnet-4-20250514",
+                success=True
+            )
+            
+            test_result.token_count = usage_record.total_tokens
+            test_result.estimated_cost = usage_record.estimated_cost
+            
+            # Validate response
+            validation_results = await self.validate_response(test_case, response)
+            test_result.detailed_results = validation_results
+            
+            # Check JSON parsing
+            try:
+                json.loads(response) if test_case.prompt_type in ["case_generation", "character_detection"] else response
+                test_result.json_parse_success = True
+            except json.JSONDecodeError:
+                test_result.json_parse_success = (test_case.prompt_type not in ["case_generation", "character_detection"])
+            
+            # Check if validation passed
+            required_validations = test_case.validation_rules
+            passed_validations = [rule for rule in required_validations if validation_results.get(rule, False)]
+            test_result.validation_passed = len(passed_validations) >= len(required_validations) * 0.8  # 80% pass rate
+            
+            # Overall success
+            test_result.success = (
+                test_result.response_received and 
+                test_result.json_parse_success and 
+                test_result.validation_passed
+            )
+            
+        except Exception as e:
+            test_result.error_message = str(e)
+            logger.error(f"Prompt test failed: {test_case.name} - {str(e)}")
+        
+        test_result.execution_time = time.time() - start_time
+        return test_result
+    
+    def _build_test_prompt(self, test_case: PromptTestCase) -> str:
+        """Build test prompt based on test case type"""
+        if test_case.prompt_type == "case_generation":
+            return """Generate a complete detective mystery case with the following structure:
+
+Create a JSON response with:
+1. Case title and setting (location, time period)
+2. Victim name and basic crime scene description
+3. 4-5 characters with detailed backgrounds, motives, and alibis
+4. 6-8 pieces of evidence with descriptions and significance
+5. The complete solution explaining who did it and how
+
+Return ONLY valid JSON with this exact structure:
+{
+  "title": "...",
+  "setting": "...",
+  "crime_scene_description": "...",
+  "victim_name": "...",
+  "characters": [{"name": "...", "description": "...", "background": "...", "alibi": "...", "motive": "...", "is_culprit": false}],
+  "evidence": [{"name": "...", "description": "...", "location_found": "...", "significance": "...", "is_key_evidence": false}],
+  "solution": "..."
+}"""
+            
+        elif test_case.prompt_type == "character_question":
+            context = test_case.test_input["character_context"]
+            return f"""You are roleplaying as {context['name']} in a detective mystery.
+
+CHARACTER CONTEXT:
+- Name: {context['name']}
+- Description: {context['description']}
+- Background: {context['background']}
+- Your alibi: {context['alibi']}
+- Possible motive: {context['motive']}
+
+The detective is asking you: "{test_case.test_input['question']}"
+
+Respond in character with personality consistent with your background. Keep response under 150 words."""
+            
+        elif test_case.prompt_type == "character_detection":
+            return f"""Analyze the following conversation for mentions of NEW people:
+
+CONVERSATION:
+{test_case.test_input['conversation']}
+
+EXISTING CHARACTERS: {', '.join(test_case.test_input['existing_characters'])}
+
+Return a JSON array of new characters found:
+[{{"role": "role/title", "context": "what was said about them"}}]
+
+If no new people are mentioned, return an empty array: []"""
+            
+        elif test_case.prompt_type == "evidence_analysis":
+            return f"""Analyze the following detective theory and evidence:
+
+CASE CONTEXT:
+- Victim: {test_case.test_input['case_context']['victim']}
+- Setting: {test_case.test_input['case_context']['setting']}
+
+DETECTIVE'S THEORY:
+{test_case.test_input['theory']}
+
+EVIDENCE BEING CONSIDERED:
+{', '.join(test_case.test_input['evidence'])}
+
+Provide a logical analysis including strengths, weaknesses, evidence relationships, and additional investigation needed."""
+        
+        return "Invalid test case type"
+    
+    async def run_test_suite(self, session_id: str, test_types: Optional[List[str]] = None) -> PromptTestSuite:
+        """Run a complete test suite"""
+        suite_start_time = time.time()
+        
+        # Filter test cases if specific types requested
+        if test_types:
+            test_cases_to_run = [tc for tc in self.test_cases if tc.prompt_type in test_types]
+        else:
+            test_cases_to_run = self.test_cases
+        
+        # Run all tests
+        results = []
+        total_cost = 0.0
+        
+        for test_case in test_cases_to_run:
+            result = await self.run_single_test(test_case, session_id)
+            results.append(result)
+            total_cost += result.estimated_cost
+        
+        # Calculate suite statistics
+        tests_passed = sum(1 for r in results if r.success)
+        tests_failed = len(results) - tests_passed
+        success_rate = (tests_passed / len(results)) * 100 if results else 0
+        
+        suite = PromptTestSuite(
+            id=str(uuid.uuid4()),
+            name=f"Prompt Test Suite - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            timestamp=datetime.now(),
+            tests_run=len(results),
+            tests_passed=tests_passed,
+            tests_failed=tests_failed,
+            total_execution_time=time.time() - suite_start_time,
+            total_cost=total_cost,
+            success_rate=success_rate,
+            results=results
+        )
+        
+        # Store suite results in database
+        await self.db.prompt_test_suites.insert_one(suite.model_dump())
+        
+        return suite
+
+# Initialize prompt test framework
+prompt_tester = PromptTestFramework(db, token_tracker)
+
 # AI Service Class
 class DualAIDetectiveService:
     def __init__(self):
