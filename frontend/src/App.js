@@ -19,6 +19,50 @@ import './App.css';
 // Backend URL from environment variables with fallback for development
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 
+/**
+ * Utility function for handling API responses with better error handling
+ * @param {Response} response - Fetch response object
+ * @returns {Promise<Object>} - Parsed JSON response
+ */
+const handleApiResponse = async (response) => {
+  if (!response.ok) {
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+    try {
+      const errorData = await response.text();
+      if (errorData) {
+        errorMessage = errorData;
+      }
+    } catch (e) {
+      // If we can't parse error, use default message
+    }
+    throw new Error(errorMessage);
+  }
+  
+  const data = await response.json();
+  
+  // Defensive validation - ensure response has expected structure
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid response format from server');
+  }
+  
+  return data;
+};
+
+/**
+ * Utility function to safely get nested object properties
+ * @param {Object} obj - Object to access
+ * @param {string} path - Dot notation path (e.g., 'user.profile.name')
+ * @param {*} defaultValue - Default value if path doesn't exist
+ * @returns {*} - Value at path or default value
+ */
+const safeGet = (obj, path, defaultValue = null) => {
+  try {
+    return path.split('.').reduce((current, key) => current?.[key], obj) ?? defaultValue;
+  } catch {
+    return defaultValue;
+  }
+};
+
 function App() {
   // Core game state
   const [currentCase, setCurrentCase] = useState(null);
