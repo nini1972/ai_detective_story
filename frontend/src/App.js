@@ -980,6 +980,13 @@ Include:
         onClose={() => setShowVisualGallery(false)}
         currentCase={currentCase}
       />
+      
+      {/* Usage Monitoring Dashboard */}
+      <UsageMonitoringDashboard
+        sessionId={sessionId}
+        isOpen={showMonitoringDashboard}
+        onClose={() => setShowMonitoringDashboard(false)}
+      />
     </div>
   );
 }
