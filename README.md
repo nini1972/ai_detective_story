@@ -33,16 +33,22 @@ A revolutionary detective game that combines **two AI systems** (OpenAI GPT-4 an
 dual-ai-detective/
 ├── frontend/          # React.js application
 │   ├── src/
-│   │   ├── App.js     # Main game interface
+│   │   ├── App.js     # Main game interface (750+ lines)
 │   │   ├── App.css    # Tailwind styling with detective theme
 │   │   └── index.js   # React entry point
 │   └── package.json   # Frontend dependencies
 ├── backend/           # FastAPI Python backend
-│   ├── server.py      # Main API with dual-AI integration
+│   ├── server.py      # ⭐ MAIN API SERVER (750+ lines of FastAPI code)
 │   ├── requirements.txt # Python dependencies
 │   └── .env          # Environment variables (API keys)
+├── main.py           # Entry point that imports backend/server.py
 └── README.md         # This file
 ```
+
+### **🔍 For Code Review Tools:**
+- **Main Backend File**: `/app/backend/server.py` (FastAPI application)
+- **Alternative Entry Point**: `/app/main.py` (imports server.py)
+- **Main Frontend File**: `/app/frontend/src/App.js` (React application)
 
 ## 🚀 **Tech Stack**
 
