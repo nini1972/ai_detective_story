@@ -181,6 +181,146 @@ class DetectiveGameAPITester:
             print(f"Analysis received, length: {len(response['analysis'])}")
             return True
         return False
+        
+    def test_session_usage(self):
+        """Test session usage tracking endpoint"""
+        if not self.session_id:
+            print("❌ No session ID available for testing")
+            return False
+            
+        success, response = self.run_test(
+            "Session Usage Tracking",
+            "GET",
+            f"api/usage/session/{self.session_id}",
+            200
+        )
+        
+        if success and 'usage' in response:
+            print("\nSession Usage Summary:")
+            print(f"Total Cost: ${response['usage']['total_cost']:.4f}")
+            print(f"Total Tokens: {response['usage']['total_tokens']}")
+            print("\nService Breakdown:")
+            for service, details in response['usage']['service_breakdown'].items():
+                print(f"- {service}: ${details['cost']:.4f} ({details['tokens']} tokens, {details['count']} operations)")
+            return True
+        return False
+        
+    def test_usage_statistics(self):
+        """Test overall usage statistics endpoint"""
+        success, response = self.run_test(
+            "Overall Usage Statistics",
+            "GET",
+            "api/usage/statistics",
+            200
+        )
+        
+        if success and 'statistics' in response:
+            stats = response['statistics']
+            print("\nOverall Usage Statistics:")
+            print(f"Total Cost: ${stats['total_cost']:.4f}")
+            print(f"Total Tokens: {stats['total_tokens']}")
+            print(f"Session Count: {stats['session_count']}")
+            print(f"Case Count: {stats['case_count']}")
+            print(f"Average Cost Per Case: ${stats['average_cost_per_case']:.4f}")
+            
+            print("\nService Breakdown:")
+            for service, details in stats['service_breakdown'].items():
+                print(f"- {service}: ${details['cost']:.4f} ({details['tokens']} tokens, {details['operations']} operations)")
+            
+            print("\nOperation Breakdown:")
+            for operation, details in stats['operation_breakdown'].items():
+                print(f"- {operation}: ${details['cost']:.4f} ({details['tokens']} tokens, {details['count']} operations)")
+            return True
+        return False
+        
+    def test_rate_limits(self):
+        """Test rate limiting functionality"""
+        if not self.session_id:
+            print("❌ No session ID available for testing")
+            return False
+            
+        success, response = self.run_test(
+            "Rate Limits Check",
+            "GET",
+            f"api/usage/rate-limits/{self.session_id}",
+            200
+        )
+        
+        if success and 'rate_limits' in response:
+            limits = response['rate_limits']
+            print("\nRate Limit Status:")
+            print(f"Within Limits: {limits['within_limits']}")
+            print(f"Cost Limit Exceeded: {limits['cost_limit_exceeded']}")
+            print(f"Operations Limit Exceeded: {limits['operations_limit_exceeded']}")
+            print(f"Current Cost: ${limits['current_cost']:.4f}")
+            print(f"Max Cost: ${limits['max_cost']:.2f}")
+            print(f"Recent Operations: {limits['recent_operations']}")
+            print(f"Max Operations: {limits['max_operations']}/hour")
+            return True
+        return False
+        
+    def test_usage_records(self):
+        """Test detailed usage records endpoint"""
+        success, response = self.run_test(
+            "Detailed Usage Records",
+            "GET",
+            "api/usage/records",
+            200
+        )
+        
+        if success and 'records' in response:
+            print(f"Total Records: {response['count']}")
+            
+            if response['count'] > 0:
+                print("\nSample Record:")
+                sample = response['records'][0]
+                print(f"ID: {sample['id']}")
+                print(f"Session ID: {sample['session_id']}")
+                print(f"Service: {sample['service']}")
+                print(f"Operation: {sample['operation']}")
+                print(f"Input Tokens: {sample['input_tokens']}")
+                print(f"Output Tokens: {sample['output_tokens']}")
+                print(f"Total Tokens: {sample['total_tokens']}")
+                print(f"Estimated Cost: ${sample['estimated_cost']:.4f}")
+                print(f"Model Used: {sample['model_used']}")
+                print(f"Success: {sample['success']}")
+            return True
+        return False
+        
+    def test_session_specific_records(self):
+        """Test session-specific usage records"""
+        if not self.session_id:
+            print("❌ No session ID available for testing")
+            return False
+            
+        success, response = self.run_test(
+            "Session-Specific Usage Records",
+            "GET",
+            f"api/usage/records?session_id={self.session_id}",
+            200
+        )
+        
+        if success and 'records' in response:
+            print(f"Session-Specific Records: {response['count']}")
+            
+            if response['count'] > 0:
+                operations = set()
+                services = set()
+                
+                for record in response['records']:
+                    operations.add(record['operation'])
+                    services.add(record['service'])
+                
+                print(f"Operations tracked: {', '.join(operations)}")
+                print(f"Services tracked: {', '.join(services)}")
+                
+                # Verify both OpenAI and Anthropic are being tracked
+                if 'openai' in services and 'anthropic' in services:
+                    print("✅ Both OpenAI and Anthropic token usage tracked successfully")
+                else:
+                    print("⚠️ Not all expected services were tracked")
+            return True
+        return False
 
 def main():
     # Get the backend URL from environment or use the one from frontend/.env
