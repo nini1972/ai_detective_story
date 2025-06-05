@@ -148,6 +148,244 @@ class UsageStatistics(BaseModel):
     average_cost_per_case: float
     last_updated: datetime
 
+# Token Usage Tracking Service
+class TokenUsageTracker:
+    """
+    Comprehensive token usage and cost tracking for all AI services.
+    Addresses Copilot recommendations for monitoring, logging, and cost control.
+    """
+    
+    # Cost estimates per 1K tokens (updated June 2025 pricing)
+    COST_PER_1K_TOKENS = {
+        "openai": {
+            "gpt-4.1": {"input": 0.01, "output": 0.03},
+            "gpt-4": {"input": 0.01, "output": 0.03},
+            "gpt-3.5-turbo": {"input": 0.001, "output": 0.002}
+        },
+        "anthropic": {
+            "claude-sonnet-4-20250514": {"input": 0.015, "output": 0.075},
+            "claude-3.5-sonnet": {"input": 0.003, "output": 0.015},
+            "claude-3-haiku": {"input": 0.00025, "output": 0.00125}
+        },
+        "fal_ai": {
+            "flux/dev": {"per_image": 0.055},  # FAL.AI image generation cost
+            "flux/schnell": {"per_image": 0.03}
+        }
+    }
+    
+    def __init__(self, db):
+        self.db = db
+        self.session_usage = defaultdict(lambda: defaultdict(float))  # Real-time session tracking
+        
+    async def estimate_tokens(self, text: str, service: str) -> int:
+        """Estimate token count for text (rough approximation)"""
+        if service in ["openai", "anthropic"]:
+            # Rough approximation: 1 token ≈ 4 characters for English
+            return max(1, len(text) // 4)
+        return 0
+    
+    async def log_usage(self, 
+                       session_id: str,
+                       case_id: Optional[str],
+                       service: str,
+                       operation: str,
+                       prompt: str,
+                       response: str,
+                       model_used: str = None,
+                       success: bool = True,
+                       error_message: str = None) -> TokenUsageRecord:
+        """
+        Log AI service usage with comprehensive tracking.
+        Implements Copilot's logging and monitoring recommendations.
+        """
+        try:
+            # Estimate tokens
+            input_tokens = await self.estimate_tokens(prompt, service) if prompt else 0
+            output_tokens = await self.estimate_tokens(response, service) if response else 0
+            total_tokens = input_tokens + output_tokens
+            
+            # Calculate cost
+            estimated_cost = self._calculate_cost(service, model_used, input_tokens, output_tokens)
+            
+            # Create usage record
+            usage_record = TokenUsageRecord(
+                id=str(uuid.uuid4()),
+                session_id=session_id,
+                case_id=case_id,
+                timestamp=datetime.now(),
+                service=service,
+                operation=operation,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                total_tokens=total_tokens,
+                estimated_cost=estimated_cost,
+                model_used=model_used,
+                prompt_length=len(prompt) if prompt else 0,
+                response_length=len(response) if response else 0,
+                success=success,
+                error_message=error_message
+            )
+            
+            # Store in database
+            await self.db.token_usage.insert_one(usage_record.model_dump())
+            
+            # Update session tracking
+            self.session_usage[session_id]["total_cost"] += estimated_cost
+            self.session_usage[session_id]["total_tokens"] += total_tokens
+            
+            # Log for monitoring
+            logger.info(f"Token usage logged: {service} | {operation} | {total_tokens} tokens | ${estimated_cost:.4f} | Session: {session_id}")
+            
+            return usage_record
+            
+        except Exception as e:
+            logger.error(f"Failed to log token usage: {str(e)}")
+            # Return a basic record even if logging fails
+            return TokenUsageRecord(
+                id=str(uuid.uuid4()),
+                session_id=session_id,
+                case_id=case_id,
+                timestamp=datetime.now(),
+                service=service,
+                operation=operation,
+                estimated_cost=0.0,
+                prompt_length=len(prompt) if prompt else 0,
+                response_length=len(response) if response else 0,
+                success=False,
+                error_message=str(e)
+            )
+    
+    def _calculate_cost(self, service: str, model: str, input_tokens: int, output_tokens: int) -> float:
+        """Calculate estimated cost based on service and model"""
+        try:
+            if service == "fal_ai":
+                # FAL.AI charges per image, not tokens
+                return self.COST_PER_1K_TOKENS["fal_ai"].get(model, {"per_image": 0.055})["per_image"]
+            
+            service_costs = self.COST_PER_1K_TOKENS.get(service, {})
+            model_costs = service_costs.get(model, service_costs.get("gpt-4", {"input": 0.01, "output": 0.03}))
+            
+            input_cost = (input_tokens / 1000) * model_costs.get("input", 0.01)
+            output_cost = (output_tokens / 1000) * model_costs.get("output", 0.03)
+            
+            return input_cost + output_cost
+            
+        except Exception:
+            # Fallback cost estimation
+            return (input_tokens + output_tokens) / 1000 * 0.02
+    
+    async def get_session_usage(self, session_id: str) -> Dict[str, Any]:
+        """Get real-time usage for a session"""
+        db_usage = await self.db.token_usage.find({"session_id": session_id}).to_list(None)
+        
+        total_cost = sum(record.get("estimated_cost", 0) for record in db_usage)
+        total_tokens = sum(record.get("total_tokens", 0) for record in db_usage)
+        
+        service_breakdown = defaultdict(lambda: {"cost": 0, "tokens": 0, "count": 0})
+        
+        for record in db_usage:
+            service = record.get("service", "unknown")
+            service_breakdown[service]["cost"] += record.get("estimated_cost", 0)
+            service_breakdown[service]["tokens"] += record.get("total_tokens", 0)
+            service_breakdown[service]["count"] += 1
+        
+        return {
+            "session_id": session_id,
+            "total_cost": total_cost,
+            "total_tokens": total_tokens,
+            "service_breakdown": dict(service_breakdown),
+            "operation_count": len(db_usage)
+        }
+    
+    async def get_usage_statistics(self, days: int = 30) -> UsageStatistics:
+        """Get comprehensive usage statistics"""
+        cutoff_date = datetime.now() - timedelta(days=days)
+        
+        # Get recent usage records
+        usage_records = await self.db.token_usage.find({
+            "timestamp": {"$gte": cutoff_date}
+        }).to_list(None)
+        
+        total_cost = sum(record.get("estimated_cost", 0) for record in usage_records)
+        total_tokens = sum(record.get("total_tokens", 0) for record in usage_records)
+        
+        # Service breakdown
+        service_breakdown = defaultdict(lambda: {"cost": 0, "tokens": 0, "operations": 0})
+        operation_breakdown = defaultdict(lambda: {"cost": 0, "tokens": 0, "count": 0})
+        
+        unique_sessions = set()
+        unique_cases = set()
+        
+        for record in usage_records:
+            service = record.get("service", "unknown")
+            operation = record.get("operation", "unknown")
+            cost = record.get("estimated_cost", 0)
+            tokens = record.get("total_tokens", 0)
+            
+            service_breakdown[service]["cost"] += cost
+            service_breakdown[service]["tokens"] += tokens
+            service_breakdown[service]["operations"] += 1
+            
+            operation_breakdown[operation]["cost"] += cost
+            operation_breakdown[operation]["tokens"] += tokens
+            operation_breakdown[operation]["count"] += 1
+            
+            if record.get("session_id"):
+                unique_sessions.add(record.get("session_id"))
+            if record.get("case_id"):
+                unique_cases.add(record.get("case_id"))
+        
+        session_count = len(unique_sessions)
+        case_count = len(unique_cases)
+        average_cost_per_case = total_cost / case_count if case_count > 0 else 0
+        
+        return UsageStatistics(
+            total_cost=total_cost,
+            total_tokens=total_tokens,
+            service_breakdown=dict(service_breakdown),
+            operation_breakdown=dict(operation_breakdown),
+            session_count=session_count,
+            case_count=case_count,
+            average_cost_per_case=average_cost_per_case,
+            last_updated=datetime.now()
+        )
+    
+    async def check_rate_limits(self, session_id: str) -> Dict[str, Any]:
+        """
+        Check if session is within rate limits.
+        Implements Copilot's rate limiting recommendation.
+        """
+        session_usage = await self.get_session_usage(session_id)
+        
+        # Define limits (configurable)
+        MAX_COST_PER_SESSION = 5.0  # $5 limit per session
+        MAX_OPERATIONS_PER_HOUR = 100  # 100 operations per hour
+        
+        # Check cost limit
+        cost_exceeded = session_usage["total_cost"] > MAX_COST_PER_SESSION
+        
+        # Check operations limit (last hour)
+        one_hour_ago = datetime.now() - timedelta(hours=1)
+        recent_operations = await self.db.token_usage.count_documents({
+            "session_id": session_id,
+            "timestamp": {"$gte": one_hour_ago}
+        })
+        
+        operations_exceeded = recent_operations > MAX_OPERATIONS_PER_HOUR
+        
+        return {
+            "within_limits": not (cost_exceeded or operations_exceeded),
+            "cost_limit_exceeded": cost_exceeded,
+            "operations_limit_exceeded": operations_exceeded,
+            "current_cost": session_usage["total_cost"],
+            "max_cost": MAX_COST_PER_SESSION,
+            "recent_operations": recent_operations,
+            "max_operations": MAX_OPERATIONS_PER_HOUR
+        }
+
+# Initialize token usage tracker
+token_tracker = None
+
 # AI Service Class
 class DualAIDetectiveService:
     def __init__(self):
