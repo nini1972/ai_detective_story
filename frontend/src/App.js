@@ -726,82 +726,13 @@ function App() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Crime Scene & Characters */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Visual Scene Notifications */}
-            {visualSceneNotifications.length > 0 && (
-              <div className="space-y-3">
-                {visualSceneNotifications.map((notification) => (
-                  <div 
-                    key={notification.id}
-                    className="bg-purple-500/20 border-l-4 border-purple-500 rounded-lg p-4 animate-fadeInUp"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-purple-300 mb-2 flex items-center">
-                          🎬 Visual Scene Generated!
-                        </h3>
-                        <p className="text-white mb-2">
-                          <strong>{notification.character}</strong> described a scene that has been visualized
-                        </p>
-                        <div className="flex gap-4 items-center">
-                          <img 
-                            src={notification.scene.image_url} 
-                            alt={notification.scene.title}
-                            className="w-24 h-18 object-cover rounded border-2 border-purple-400"
-                          />
-                          <div>
-                            <p className="text-purple-200 text-sm italic">"{notification.scene.description}"</p>
-                            <p className="text-gray-300 text-sm mt-1">Added to Visual Gallery</p>
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setVisualSceneNotifications(prev => 
-                          prev.filter(n => n.id !== notification.id)
-                        )}
-                        className="text-purple-400 hover:text-purple-300 text-xl ml-4"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* New Character Discovery Notifications */}
-            {newCharacterNotifications.length > 0 && (
-              <div className="space-y-3">
-                {newCharacterNotifications.map((notification) => (
-                  <div 
-                    key={notification.id}
-                    className="bg-yellow-500/20 border-l-4 border-yellow-500 rounded-lg p-4 animate-fadeInUp"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="text-lg font-semibold text-yellow-300 mb-2 flex items-center">
-                          🔍 New Lead Discovered!
-                        </h3>
-                        <p className="text-white mb-2">
-                          <strong>{notification.discoveredThrough}</strong> mentioned: <strong>{notification.character.name}</strong>
-                        </p>
-                        <p className="text-yellow-200 text-sm italic">"{notification.context}"</p>
-                        <p className="text-gray-300 text-sm mt-2">
-                          {notification.character.name} is now available for questioning below.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setNewCharacterNotifications(prev => 
-                          prev.filter(n => n.id !== notification.id)
-                        )}
-                        className="text-yellow-400 hover:text-yellow-300 text-xl"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* Notifications Container */}
+            <NotificationContainer
+              visualNotifications={visualSceneNotifications}
+              characterNotifications={newCharacterNotifications}
+              onDismissVisual={(id) => setVisualSceneNotifications(prev => prev.filter(n => n.id !== id))}
+              onDismissCharacter={(id) => setNewCharacterNotifications(prev => prev.filter(n => n.id !== id))}
+            />
 
             {/* Crime Scene */}
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-6">
