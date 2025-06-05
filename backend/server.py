@@ -34,6 +34,10 @@ from collections import defaultdict
 # Load environment variables
 load_dotenv()
 
+# Configure logging for token usage monitoring
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Dual-AI Detective Game API",
