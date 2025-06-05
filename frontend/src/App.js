@@ -18,6 +18,7 @@ import './App.css';
 
 // Component imports
 import CharacterInteraction from './components/CharacterInteraction';
+import EvidenceBoard from './components/EvidenceBoard';
 import { NotificationContainer } from './components/Notifications';
 import EvidenceBoard from './components/EvidenceBoard';
 import VisualGalleryModal from './components/VisualGalleryModal';
