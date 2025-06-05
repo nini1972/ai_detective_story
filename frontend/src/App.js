@@ -688,6 +688,12 @@ function App() {
             >
               {showContextPanel ? '📋 Hide Detective Info' : '📋 Show Detective Info'}
             </button>
+            <button
+              onClick={() => setShowMonitoringDashboard(true)}
+              className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
+            >
+              📊 Usage Monitor
+            </button>
           </div>
         </div>
 
