@@ -3,7 +3,10 @@ import requests
 import sys
 import os
 import json
+import time
+import uuid
 from datetime import datetime
+from pprint import pprint
 
 class DetectiveGameAPITester:
     def __init__(self, base_url):
